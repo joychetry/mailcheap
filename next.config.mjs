@@ -34,6 +34,8 @@ const SITE_EXTENSIONS = Object.entries({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
 	poweredByHeader: false,
+	// The Dockerfile's build only: next start doesn't serve standalone output.
+	...(process.env.NEXT_OUTPUT === "standalone" && { output: "standalone" }),
 	turbopack: { resolveAlias: Object.fromEntries(SITE_EXTENSIONS) },
 	images: {
 		remotePatterns: [
