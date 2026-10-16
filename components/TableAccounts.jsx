@@ -170,6 +170,7 @@ const TENANT_STATUSES = {
 	ENABLED: "Enabled",
 	DISABLED: "Paused by SES",
 	REINSTATED: "Reinstated",
+	smtp: "SMTP has no tenants",
 };
 const STOPPED_TENANT_STATUSES = new Set(["suspended", "operator_hold", "DISABLED"]);
 

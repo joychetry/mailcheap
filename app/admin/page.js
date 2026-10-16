@@ -8,6 +8,7 @@ import { SkeletonSesAccount } from "@/components/SkeletonOverview";
 import StateEmpty from "@/components/StateEmpty";
 import StripPostshibaClusters from "@/components/StripPostshibaClusters";
 import StripSesAccount from "@/components/StripSesAccount";
+import StripSmtpServer from "@/components/StripSmtpServer";
 import TableAccounts from "@/components/TableAccounts";
 import { hasActiveSubscription, isBlocked } from "@/lib/account-state";
 import { listAccountsForAdmin } from "@/lib/accounts";
@@ -77,7 +78,9 @@ export default async function AdminPage({ searchParams }) {
 
 				<section style={{ "--stagger": 3 }} className="flex flex-col gap-3 animate-enter">
 					<h2 className="text-sm font-medium text-muted-foreground">{provider.name}</h2>
-					<Suspense fallback={<SkeletonSesAccount />}>{provider.id === "ses" ? <StripSesAccount /> : <StripPostshibaClusters />}</Suspense>
+					<Suspense fallback={<SkeletonSesAccount />}>
+						{provider.id === "ses" ? <StripSesAccount /> : provider.id === "smtp" ? <StripSmtpServer /> : <StripPostshibaClusters />}
+					</Suspense>
 				</section>
 
 				<section style={{ "--stagger": 4 }} className="flex flex-col gap-3 animate-enter">
