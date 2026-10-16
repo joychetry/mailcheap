@@ -81,9 +81,9 @@ Plan for about an hour, most of it waiting for DNS and for your provider to appr
 | Service | For | Cost |
 | --- | --- | --- |
 | [MongoDB](https://www.mongodb.com/atlas) | Contacts, campaigns, stats | Free tier works |
-| [Amazon SES](https://aws.amazon.com/ses/) or [PostShiba](https://postshiba.com) | Sending | SES: $0.10 to $0.16 per 1,000 emails, depending on its pricing plan. PostShiba: a fixed price per cluster, invite only for now |
-| [Upstash QStash](https://upstash.com/docs/qstash) | Background sending and scheduling | Free tier to start, then pay per message. One message sends 50 emails |
-| [Vercel](https://vercel.com) or any Node.js 22+ host | Hosting | Free tier works |
+| [Amazon SES](https://aws.amazon.com/ses/), [PostShiba](https://postshiba.com) or an SMTP server | Sending | SES: $0.10 to $0.16 per 1,000 emails, depending on its pricing plan. PostShiba: a fixed price per cluster, invite only for now. SMTP: your own mail server, without bounce or complaint tracking ([Docker](#docker)) |
+| [Upstash QStash](https://upstash.com/docs/qstash), or the local job queue on a server that runs all the time | Background sending and scheduling | Free tier to start, then pay per message. One message sends 50 emails. The local queue is free ([Docker](#docker)) |
+| [Vercel](https://vercel.com), Docker or any Node.js 22+ host | Hosting | Free tier works |
 | [Resend](https://resend.com) (optional) | Sign-in codes and alerts. Without it, they go through SES or PostShiba | Free plan works |
 | [Upstash Redis](https://upstash.com/docs/redis) (optional) | Rate limits shared by every server instance | Free tier |
 | [Amazon S3](https://aws.amazon.com/s3/) with [CloudFront](https://aws.amazon.com/cloudfront/), or [Vercel Blob](https://vercel.com/docs/vercel-blob) (optional) | Image uploads in the editor, the newsletter settings and the API | S3 and CloudFront: pay per use. Blob: free tier |
@@ -103,8 +103,8 @@ Without Redis, MailCheap counts the same rate limits in each server instance's m
 | `APP_URL` | Public URL of the app, for email links and sign-in. On Vercel it defaults to the production domain |
 | `RESEND_API_KEY` | Optional: sign-in codes and alerts through Resend. Without it, they go through the email provider |
 | `SENDING_ENABLED` | Nothing goes to readers unless it's `true`. Sign-in codes and alerts don't wait for it |
-| `SES_*` or `POSTSHIBA_*` | The email provider, in step 4 |
-| `QSTASH_*` | Background sending and scheduling, in step 5 |
+| `SES_*`, `POSTSHIBA_*` or `SMTP_*` | The email provider, in step 4, or SMTP on [Docker](#docker) |
+| `QSTASH_*` or `JOB_QUEUE` | Background sending and scheduling, in step 5, or `JOB_QUEUE=local` on [Docker](#docker) |
 
 [`.env.example`](.env.example) lists every variable with what it does, the optional ones included: Google sign-in and Postmaster Tools, image uploads, Redis, Telegram alerts, the shared domain, and MailCheap Cloud's own.
 
@@ -134,7 +134,7 @@ Everyone gets an account of their own, with up to 3 newsletters and their contac
 
 ### 4. Email provider
 
-Pick Amazon SES or PostShiba (invite only for now). `EMAIL_PROVIDER` picks one; without it, MailCheap uses PostShiba when `POSTSHIBA_API_KEY` is set and SES otherwise. Every account gets its own tenant there, with its own domains, suppression list and pause switch. MailCheap creates them; you set up the provider account and its events once.
+Pick Amazon SES or PostShiba (invite only for now), or an SMTP server of your own ([Docker](#docker)). `EMAIL_PROVIDER` picks one; without it, MailCheap uses PostShiba when `POSTSHIBA_API_KEY` is set, SMTP when `SMTP_HOST` is, and SES otherwise. Every account gets its own tenant there, with its own domains, suppression list and pause switch. MailCheap creates them; you set up the provider account and its events once.
 
 #### Amazon SES
 
@@ -198,7 +198,7 @@ Without Resend, sign-in codes and alerts go through a tenant of their own, `mc-p
 1. In the [Upstash console](https://console.upstash.com/qstash), open QStash and copy `QSTASH_TOKEN`, `QSTASH_CURRENT_SIGNING_KEY` and `QSTASH_NEXT_SIGNING_KEY` (and `QSTASH_URL` if you picked a region other than the default).
 2. Add them and redeploy.
 
-QStash calls `APP_URL/api/jobs/...` to send each batch, so the app has to be reachable on the internet. MailCheap checks QStash's signature on every job.
+QStash calls `APP_URL/api/jobs/...` to send each batch, so the app has to be reachable on the internet. MailCheap checks QStash's signature on every job. On a server that runs all the time, `JOB_QUEUE=local` does without QStash ([Docker](#docker)).
 
 ### 6. Turn sending on
 
@@ -206,6 +206,30 @@ QStash calls `APP_URL/api/jobs/...` to send each batch, so the app has to be rea
 2. Create your newsletter. The from address must be on that domain, and the postal address shows in every email's footer (anti-spam laws require one).
 3. Set `SENDING_ENABLED=true` and redeploy.
 4. Write a campaign, send yourself a test, then send. A first send to new contacts goes out in steps by itself; for a new domain, also set a limit to reach your most engaged readers first, and use **Send to more** on the report once the first step looks healthy.
+
+### Docker
+
+MailCheap also runs on one server of your own (a VPS, Coolify, Dokku), with each hosted service swapped for one you run. Each switch is its own variable, and none is set on Vercel, where nothing changes:
+
+| Hosted | On your server | Switched on by |
+| --- | --- | --- |
+| Vercel | The `Dockerfile`: a standalone Next.js server, non-root, with a health check | Building the image |
+| MongoDB Atlas | The `mongo:8` service in `docker-compose.yml`, or any MongoDB | `MONGO_PASSWORD`, or your own `MONGODB_URI` |
+| Upstash QStash | A job queue in MongoDB, run by the server itself | `JOB_QUEUE=local` (the Compose file's default) |
+| Amazon SES or PostShiba | Any SMTP server: Postfix, Stalwart, a provider's SMTP | `SMTP_HOST`, or `EMAIL_PROVIDER=smtp` |
+| S3 with CloudFront, or Vercel Blob | Any S3-compatible bucket (MinIO, Garage, R2), private, served by the app | `IMAGES_S3_ENDPOINT`, without `IMAGES_CDN_URL` |
+
+**Run it.** Next to `docker-compose.yml`, put a `.env` with `MONGO_PASSWORD` (`openssl rand -hex 24`), `BETTER_AUTH_SECRET` and `SUPPRESSION_HASH_KEY` (`openssl rand -base64 48` each), `APP_URL` (its public `https://` URL), `ADMIN_EMAILS` and `EMAIL_FROM`, plus the SMTP variables below. Then `docker compose up -d`. No port is published: put a reverse proxy with HTTPS in front (Caddy, Traefik, nginx), pointed at the `app` service's port 3000. It has to set `X-Forwarded-For`, which the rate limits read. `APP_URL` and `IMAGES_CDN_URL` are build arguments too: the docs print `APP_URL`, so rebuild after changing it. To build the image alone: `docker build --build-arg APP_URL=https://news.example.com -t mailcheap .`.
+
+On Coolify, use the Docker Compose build pack with this file and set the variables in its Environment Variables tab, where every one is listed. With the Dockerfile build pack and a MongoDB of Coolify's instead, set `MONGODB_URI` and `JOB_QUEUE=local` yourself, and point the health check at host `127.0.0.1`, path `/api/health`: BusyBox's wget resolves `localhost` to IPv6, where the server doesn't listen.
+
+**The local job queue.** With `JOB_QUEUE=local`, the jobs QStash would deliver (each batch of 50 emails, scheduled sends, first-send checks and account purges) wait in the `jobs` collection. Every 5 seconds the server asks itself, at `/api/jobs/run` with a token derived from `BETTER_AUTH_SECRET`, to run the due ones through the same `/api/jobs/*` routes QStash calls, one at a time. A job that fails is tried again after 30 seconds, then 1, 2, 4 and 8 minutes, and stays `failed` after its 6th try; the 3rd failure alerts the admins. A job whose server stopped mid-run is taken again after 10 minutes, so a reader can get an email twice at most, as with QStash. Finished jobs are deleted after 30 days. Several servers can share the queue: each job is claimed by one. With `CRON_SECRET` set, the same timer runs `/api/cron/hourly` every hour and `/api/cron/postmaster` every day, on each server, so you need no scheduler.
+
+**SMTP.** Set `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD` and `SMTP_DOMAINS`, the comma-separated domains the server signs for. Port 587 (`SMTP_PORT`) requires STARTTLS: a server without it is refused, never sent to in plaintext. `SMTP_SECURE=true` uses TLS from the start, on port 465. Certificates are checked unless `SMTP_TLS_VERIFY=false`, only for a relay on a private network whose certificate can't match its hostname there. Sign-in codes and alerts go through it too when `RESEND_API_KEY` isn't set.
+
+On the Domains page, a domain in `SMTP_DOMAINS` is verified and one that isn't can't send. DKIM, SPF, DMARC alignment and the return path are the mail server's job: MailCheap can't check them, so the page doesn't show their status. What SMTP gives up: there are no events, so bounces and complaints aren't recorded. Suppressions don't grow from them, the 2% bounce and 0.08% complaint pauses never trip, and reports show no bounces. Watch the server's own bounce reports, and clean lists before importing them. `/admin` says so too.
+
+**S3-compatible storage.** Set `IMAGES_S3_BUCKET`, `IMAGES_S3_ENDPOINT` (like `http://minio:9000`), `IMAGES_S3_ACCESS_KEY_ID`, `IMAGES_S3_SECRET_ACCESS_KEY` and `IMAGES_S3_REGION` if the store wants one. MailCheap addresses it path-style (`endpoint/bucket/key`). Without `IMAGES_CDN_URL`, images are served by the app at `APP_URL/media/accounts/...`, so the bucket stays private and the links in sent emails stay on your domain; only keys an upload could have made are served, as the image type their extension says. Those links follow `APP_URL`: keep it once you've sent images. The keys need to put, get and delete objects under `accounts/`.
 
 ### Optional
 
@@ -215,7 +239,7 @@ QStash calls `APP_URL/api/jobs/...` to send each batch, so the app has to be rea
   2. At [postmaster.google.com](https://postmaster.google.com), add the domain every email is DKIM-signed with: `SHARED_DOMAIN`, which PostShiba's primary domain signing adds to every email, or `POSTMASTER_DOMAIN`. A domain the same Google account verified in Search Console is verified already.
   3. On `/admin`, under **Gmail spam rates**, click **Connect** and allow access with that Google account. Google warns that it hasn't verified the app: it's your own, continue. MailCheap asks for read access to traffic statistics only, and stores the refresh token encrypted with `CREDENTIALS_ENCRYPTION_KEY`.
 
-  Vercel Cron then runs `/api/cron/postmaster` every day (`vercel.json`); elsewhere, have a scheduler call it with `Authorization: Bearer <CRON_SECRET>`. It acts on the newest day of Gmail's data once, with the thresholds in `POSTMASTER` (`lib/config.js`). Gmail only reports domains that send to at least 50 Gmail users a day, and a feedback ID once it has enough emails and spam reports, so until then it finds nothing and says nothing. If Google refuses the connection, one alert says so. Every email's `Feedback-ID` is `<campaign or newsletter id>:mc-<accountId>:<kind>:mailcheap` (`lib/sending-rules.js`): SES sends it as it is, and PostShiba writes its own in its place, also led by `mc-<accountId>`, so each ID maps back to its account (`lib/postmaster-rules.js`).
+  Vercel Cron then runs `/api/cron/postmaster` every day (`vercel.json`), and the local job queue does on [Docker](#docker); elsewhere, have a scheduler call it with `Authorization: Bearer <CRON_SECRET>`. It acts on the newest day of Gmail's data once, with the thresholds in `POSTMASTER` (`lib/config.js`). Gmail only reports domains that send to at least 50 Gmail users a day, and a feedback ID once it has enough emails and spam reports, so until then it finds nothing and says nothing. If Google refuses the connection, one alert says so. Every email's `Feedback-ID` is `<campaign or newsletter id>:mc-<accountId>:<kind>:mailcheap` (`lib/sending-rules.js`): SES sends it as it is, and PostShiba writes its own in its place, also led by `mc-<accountId>`, so each ID maps back to its account (`lib/postmaster-rules.js`).
 - **Image uploads.** The quickest is Vercel Blob: in Vercel, **Storage > Create > Blob**, connect it to the project, and redeploy. To serve images from a subdomain of your own (like `cdn.example.com`), put an S3 bucket behind CloudFront. It takes over new uploads, and images already on Blob keep their URLs:
   1. Create a private S3 bucket with Block Public Access on.
   2. In ACM, request a certificate for the subdomain in `us-east-1`, validated by DNS. If your domain has CAA records, add `0 issue "amazon.com"`.
