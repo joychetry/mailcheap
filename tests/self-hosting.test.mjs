@@ -50,6 +50,8 @@ before(async () => {
 		runRoute: await import("../app/api/jobs/run/route.js"),
 		sendBatchRoute: await import("../app/api/jobs/send-batch/route.js"),
 		mediaRoute: await import("../app/media/[...key]/route.js"),
+		proxy: (await import("../proxy.js")).proxy,
+		NextRequest: (await import("next/server")).NextRequest,
 		Account: (await import("../models/Account.js")).default,
 		Alert: (await import("../models/Alert.js")).default,
 		Campaign: (await import("../models/Campaign.js")).default,
@@ -277,5 +279,23 @@ describe("S3-compatible storage without a CDN", () => {
 		await m.imageStorage.deleteImages([{ url: `https://old.example.com/media/${pathname}`, pathname }]);
 		assert.deepEqual(s3Deleted.at(-1), { Bucket: "mailcheap", Key: pathname });
 		assert.equal(blobDeleted.length, blobDeletes, "never sent to Vercel Blob");
+	});
+});
+
+describe("proxy", () => {
+	const visit = (path, host = "localhost:3000") => m.proxy(new m.NextRequest(new URL(path, `http://${host}`), { headers: { host } }));
+
+	test("/media opens without a session, the dashboard doesn't", async () => {
+		const media = await visit("/media/accounts/64f1a2b3c4d5e6f7a8b9c0d1/images/cover-0123456789abcdef.png");
+		assert.equal(media.headers.get("x-middleware-next"), "1");
+		assert.match((await visit("/campaigns")).headers.get("location"), /\/signin/);
+	});
+
+	test("in development, a host in ALLOWED_DEV_ORIGINS is the app, not a newsletter's archive", async () => {
+		const host = "192.168.1.5:3000";
+		const dev = await withEnv({ NODE_ENV: "development", ALLOWED_DEV_ORIGINS: "10.0.0.2, 192.168.1.5" }, () => visit("/campaigns", host));
+		assert.match(dev.headers.get("location"), /\/signin/);
+		const prod = await withEnv({ ALLOWED_DEV_ORIGINS: "10.0.0.2, 192.168.1.5" }, () => visit("/campaigns", host));
+		assert.equal(prod.status, 404, "only in development");
 	});
 });
