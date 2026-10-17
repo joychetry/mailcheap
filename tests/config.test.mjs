@@ -28,6 +28,14 @@ test("BETTER_AUTH_SECRET and SUPPRESSION_HASH_KEY need 32 characters each", () =
 	assert.equal(getConfigProblems({}).length, 2, "missing counts as too short");
 });
 
+test("the local job queue refuses to start on Vercel, where nothing would run its jobs", () => {
+	assert.deepEqual(getConfigProblems({ ...STRONG, JOB_QUEUE: "local", VERCEL: "1" }), [
+		"JOB_QUEUE=local needs a server that runs all the time: on Vercel, unset it and use QStash.",
+	]);
+	assert.deepEqual(getConfigProblems({ ...STRONG, JOB_QUEUE: "local" }), []);
+	assert.deepEqual(getConfigProblems({ ...STRONG, VERCEL: "1" }), []);
+});
+
 test("the server doesn't start with a short secret or hash key", () =>
 	withEnv(STRONG, () => {
 		assert.doesNotThrow(register);
