@@ -43,7 +43,7 @@ Report it privately on GitHub: open the [Security tab](https://github.com/marclo
 - Without `RESEND_API_KEY` or an email provider, development prints codes in the server console; production never does.
 - After sign-in, the app only goes on to a path on its own site with at most a plain query string (`/billing/checkout?plan=growth&interval=year`): never another host or a protocol-relative path.
 - `/billing/checkout` (the plan buttons) only opens Checkout for a signed-in account without a plan. A paying account gets the billing page, where Stripe confirms any change.
-- An account without a plan can set up its newsletter and write campaigns, nothing that reaches outside MailCheap: no emails (tests and signup emails included), imports, domains or API keys, nothing at the email provider or in DNS until its plan starts, and 20 image uploads and 5 contacts added by hand a day.
+- An account without a plan can set up its newsletter and write campaigns, nothing that reaches outside MailCheap: no emails (tests and signup emails included), imports, domains or API keys, nothing at the email provider or in DNS until its plan starts, and 20 image uploads and 3 contacts added by hand a day.
 - `/admin` and its actions answer 404 to anyone whose verified email isn't in `ADMIN_EMAILS`.
 - The server refuses to start with a `BETTER_AUTH_SECRET` under 32 characters.
 
