@@ -3,7 +3,8 @@ import { after, before, describe, test } from "node:test";
 import { as, callApi, catchRedirect, form, platformEmails, signIn, startTestApp, withEnv } from "./helpers/app.mjs";
 import { failNextSend, sentMail, transports } from "./stubs/nodemailer.mjs";
 import { published } from "./stubs/qstash.mjs";
-import { clients as s3Clients, objects as s3Objects } from "./stubs/s3.mjs";
+import { clients as s3Clients, deleted as s3Deleted, objects as s3Objects } from "./stubs/s3.mjs";
+import { deleted as blobDeleted } from "./stubs/vercel-blob.mjs";
 
 // A server on Docker: SMTP in SES's place, the local job queue in QStash's, and an S3-compatible bucket with no CDN.
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]);
@@ -40,6 +41,7 @@ before(async () => {
 		smtp: (await import("../lib/email-provider/smtp.js")).smtpProvider,
 		sendingRules: await import("../lib/sending-rules.js"),
 		jobRules: await import("../lib/job-rules.js"),
+		imageStorage: await import("../lib/image-storage.js"),
 		signin: await import("../app/signin/actions.js"),
 		newsletters: await import("../app/(app)/newsletters/actions.js"),
 		campaigns: await import("../app/(app)/campaigns/actions.js"),
@@ -265,6 +267,15 @@ describe("S3-compatible storage without a CDN", () => {
 		for (const path of [missing, `${object.Key}/x.png`, object.Key.replace(".png", ".svg"), "accounts/../secret.png", object.Key.toUpperCase(), `accounts/${user.accountId}/cover.png`]) {
 			assert.equal((await get(path)).status, 404, path);
 		}
-		assert.equal((await withEnv({ IMAGES_CDN_URL: "https://cdn.example.com" }, () => get(object.Key))).status, 404, "a CDN serves them instead");
+		assert.equal((await withEnv({ IMAGES_CDN_URL: "https://cdn.example.com" }, () => get(object.Key))).status, 200, "sent emails' links outlive a CDN");
+		assert.equal((await withEnv({ IMAGES_S3_BUCKET: "" }, () => get(object.Key))).status, 404, "no bucket, nothing to serve");
+	});
+
+	test("an account's purge deletes its /media images from the bucket, even after APP_URL changed", async () => {
+		const pathname = "accounts/64f1a2b3c4d5e6f7a8b9c0d1/images/cover-0123456789abcdef.png";
+		const blobDeletes = blobDeleted.length;
+		await m.imageStorage.deleteImages([{ url: `https://old.example.com/media/${pathname}`, pathname }]);
+		assert.deepEqual(s3Deleted.at(-1), { Bucket: "mailcheap", Key: pathname });
+		assert.equal(blobDeleted.length, blobDeletes, "never sent to Vercel Blob");
 	});
 });

@@ -5,11 +5,12 @@ export const dynamic = "force-dynamic";
 
 const NOT_FOUND = () => new Response("Not found", { status: 404 });
 
-// Uploads in a private S3 bucket without a CDN in front (lib/image-storage.js). Open to anyone: sent emails load them.
+// Uploads in a private S3 bucket without a CDN in front (lib/image-storage.js). Open to anyone: sent emails load them,
+// so they're still served here once a CDN takes over new uploads.
 export async function GET(_request, { params }) {
 	const key = ((await params).key ?? []).join("/");
 	const contentType = getUploadContentType(key);
-	if (getImageStorage() !== "s3" || process.env.IMAGES_CDN_URL || !contentType) return NOT_FOUND();
+	if (getImageStorage() !== "s3" || !contentType) return NOT_FOUND();
 	const image = await getS3Image(key);
 	if (!image) return NOT_FOUND();
 	return new Response(image.body, {
