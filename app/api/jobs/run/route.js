@@ -17,7 +17,8 @@ const ROUTES = {
 };
 
 // The local job queue's runner (lib/job-rules.js): the server's own ticker calls it every few seconds with a token
-// derived from BETTER_AUTH_SECRET, and it runs the due jobs for up to 50 seconds. Nothing at all without JOB_QUEUE=local.
+// derived from BETTER_AUTH_SECRET, and it takes due jobs for 50 seconds, then finishes the one it's on. Nothing at all
+// without JOB_QUEUE=local.
 export async function POST(request) {
 	if (!isLocalQueue()) return NextResponse.json({ error: "Not found" }, { status: 404 });
 	if (!isValidRunnerAuth(request.headers.get("authorization"))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
