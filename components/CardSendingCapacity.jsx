@@ -9,7 +9,7 @@ const NEAR_CAP = 0.8;
 
 // capacity: getSendingCapacity's promise (lib/sending-capacity.js), started with the page's other reads.
 export default async function CardSendingCapacity({ capacity }) {
-	const { lanes, error } = await capacity;
+	const { lanes, note, error } = await capacity;
 	return (
 		<CardSettings
 			title="Sending capacity"
@@ -27,6 +27,7 @@ export default async function CardSendingCapacity({ capacity }) {
 					{lanes.map((lane) => (
 						<Lane key={lane.label} {...lane} />
 					))}
+					{note && <p className="bg-card px-4 py-3 text-xs text-pretty text-muted-foreground">{note}</p>}
 				</div>
 			)}
 		</CardSettings>
@@ -48,7 +49,16 @@ function Lane({ label, status, meters, perSecond }) {
 	);
 }
 
+// cap: null where the provider sets none, and the count stands alone.
 function Meter({ label, used, cap }) {
+	if (cap === null) {
+		return (
+			<div className="flex items-baseline justify-between gap-3 text-xs tabular-nums">
+				<span className="text-muted-foreground">{label}</span>
+				<span className="font-medium">{formatNumber(used)}</span>
+			</div>
+		);
+	}
 	const ratio = cap > 0 ? Math.min(used / cap, 1) : 0;
 	return (
 		<div className="flex flex-col gap-1.5">
