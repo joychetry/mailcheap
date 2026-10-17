@@ -84,7 +84,7 @@ Plan for about an hour, most of it waiting for DNS and for your provider to appr
 | [Amazon SES](https://aws.amazon.com/ses/), [PostShiba](https://postshiba.com) or an SMTP server | Sending | SES: $0.10 to $0.16 per 1,000 emails, depending on its pricing plan. PostShiba: a fixed price per cluster, invite only for now. SMTP: your own mail server, without bounce or complaint tracking ([Docker](#docker)) |
 | [Upstash QStash](https://upstash.com/docs/qstash), or the local job queue on a server that runs all the time | Background sending and scheduling | Free tier to start, then pay per message. One message sends 50 emails. The local queue is free ([Docker](#docker)) |
 | [Vercel](https://vercel.com), Docker or any Node.js 22+ host | Hosting | Free tier works |
-| [Resend](https://resend.com) (optional) | Sign-in codes and alerts. Without it, they go through SES or PostShiba | Free plan works |
+| [Resend](https://resend.com) (optional) | Sign-in codes and alerts. Without it, they go through the email provider | Free plan works |
 | [Upstash Redis](https://upstash.com/docs/redis) (optional) | Rate limits shared by every server instance | Free tier |
 | [Amazon S3](https://aws.amazon.com/s3/) with [CloudFront](https://aws.amazon.com/cloudfront/), or [Vercel Blob](https://vercel.com/docs/vercel-blob) (optional) | Image uploads in the editor, the newsletter settings and the API | S3 and CloudFront: pay per use. Blob: free tier |
 
