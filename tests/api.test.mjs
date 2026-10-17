@@ -670,7 +670,7 @@ describe("newsletters and images", () => {
 		const off = await withEnv({ BLOB_READ_WRITE_TOKEN: "" }, upload);
 		assert.match(assertError(off, 503, "unavailable"), /IMAGES_S3_BUCKET.*BLOB_READ_WRITE_TOKEN/);
 		const half = await withEnv({ IMAGES_S3_BUCKET: "mailcheap-images-test" }, upload);
-		assert.match(assertError(half, 503, "unavailable"), /IMAGES_S3_ACCESS_KEY_ID, IMAGES_S3_SECRET_ACCESS_KEY, IMAGES_CDN_URL/);
+		assert.match(assertError(half, 503, "unavailable"), /IMAGES_S3_ACCESS_KEY_ID, IMAGES_S3_SECRET_ACCESS_KEY have/);
 		assert.equal(await m.Upload.countDocuments({ accountId: user.accountId }), 0);
 	});
 });

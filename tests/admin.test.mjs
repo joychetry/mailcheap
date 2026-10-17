@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import mongoose from "mongoose";
-import { activate, as, catchNotFound, form, signIn, startTestApp } from "./helpers/app.mjs";
+import { activate, as, catchNotFound, form, signIn, startTestApp, withEnv } from "./helpers/app.mjs";
 
 const DAY_MS = 86_400_000;
 
@@ -152,6 +152,9 @@ test("email stats count customers' emails of the last 30 days, never test emails
 	assert.equal(stats.days.length, 30);
 	assert.deepEqual(stats.days.at(-1), { day: now.toISOString().slice(0, 10), sent: 10 });
 	assert.equal(stats.days.reduce((sum, { sent }) => sum + sent, 0), 10);
+
+	const overSmtp = await withEnv({ EMAIL_PROVIDER: "smtp", SMTP_HOST: "mail.example.com" }, () => m.stats.getEmailStats({ now }));
+	assert.deepEqual([overSmtp.sent, overSmtp.bounceRate, overSmtp.complaintRate], [10, null, null], "an SMTP server reports neither back");
 });
 
 test("recent campaigns are customers', upcoming first, with their owner and numbers; drafts and the admins' stay out", async () => {

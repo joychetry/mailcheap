@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { getAdminEmails, getConfigProblems, isEmailAllowed } from "../lib/config.js";
+import { getAdminEmails, getConfigProblems, getDevOrigins, isEmailAllowed } from "../lib/config.js";
 import { register } from "../instrumentation.js";
 
 const STRONG = { BETTER_AUTH_SECRET: "s".repeat(32), SUPPRESSION_HASH_KEY: "k".repeat(32) };
@@ -26,6 +26,14 @@ test("BETTER_AUTH_SECRET and SUPPRESSION_HASH_KEY need 32 characters each", () =
 		"SUPPRESSION_HASH_KEY must be at least 32 characters (generate one with: openssl rand -base64 48).",
 	]);
 	assert.equal(getConfigProblems({}).length, 2, "missing counts as too short");
+});
+
+test("the local job queue refuses to start on Vercel, where nothing would run its jobs", () => {
+	assert.deepEqual(getConfigProblems({ ...STRONG, JOB_QUEUE: "local", VERCEL: "1" }), [
+		"JOB_QUEUE=local needs a server that runs all the time: on Vercel, unset it and use QStash.",
+	]);
+	assert.deepEqual(getConfigProblems({ ...STRONG, JOB_QUEUE: "local" }), []);
+	assert.deepEqual(getConfigProblems({ ...STRONG, VERCEL: "1" }), []);
 });
 
 test("the server doesn't start with a short secret or hash key", () =>
@@ -96,4 +104,9 @@ test("ADMIN_EMAILS is a comma-separated list, trimmed and lowercased", () => {
 		if (previous === undefined) delete process.env.ADMIN_EMAILS;
 		else process.env.ADMIN_EMAILS = previous;
 	}
+});
+
+test("ALLOWED_DEV_ORIGINS is a comma-separated list of hosts, trimmed and lowercased", () => {
+	assert.deepEqual(getDevOrigins({ ALLOWED_DEV_ORIGINS: "192.168.1.5, MyBox.local ,," }), ["192.168.1.5", "mybox.local"]);
+	assert.deepEqual(getDevOrigins({}), []);
 });

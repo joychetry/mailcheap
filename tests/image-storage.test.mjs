@@ -23,12 +23,13 @@ test("new images go to S3 when its bucket is set, else to Vercel Blob, else uplo
 	assert.match(getImageStorageProblem({}), /IMAGES_S3_BUCKET.*BLOB_READ_WRITE_TOKEN/);
 });
 
-test("a bucket without its keys or CDN says what's missing, instead of quietly using Blob", () => {
+test("a bucket without its keys says what's missing, instead of quietly using Blob; without a CDN the app serves it", () => {
 	assert.equal(
 		getImageStorageProblem({ IMAGES_S3_BUCKET: "mailcheap-images-test", BLOB_READ_WRITE_TOKEN: "blob" }),
-		"IMAGES_S3_BUCKET is set, so IMAGES_S3_ACCESS_KEY_ID, IMAGES_S3_SECRET_ACCESS_KEY, IMAGES_CDN_URL have to be set too"
+		"IMAGES_S3_BUCKET is set, so IMAGES_S3_ACCESS_KEY_ID, IMAGES_S3_SECRET_ACCESS_KEY have to be set too"
 	);
-	assert.equal(getImageStorageProblem({ ...S3, IMAGES_CDN_URL: "" }), "IMAGES_S3_BUCKET is set, so IMAGES_CDN_URL has to be set too");
+	assert.equal(getImageStorageProblem({ ...S3, IMAGES_S3_SECRET_ACCESS_KEY: "" }), "IMAGES_S3_BUCKET is set, so IMAGES_S3_SECRET_ACCESS_KEY has to be set too");
+	assert.equal(getImageStorageProblem({ ...S3, IMAGES_CDN_URL: "" }), null);
 	assert.equal(getImageStorageProblem({ ...S3, IMAGES_CDN_URL: "http://cdn.example.com" }), "IMAGES_CDN_URL must be an https:// URL");
 });
 

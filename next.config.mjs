@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { getDevOrigins } from "./lib/config.js";
 
 // No script-src: Next.js's inline scripts would need per-request nonces, which archive pages can't have
 // while they're cached (ISR). script-src-attr still blocks inline event handlers everywhere.
@@ -34,6 +35,9 @@ const SITE_EXTENSIONS = Object.entries({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
 	poweredByHeader: false,
+	allowedDevOrigins: getDevOrigins(),
+	// The Dockerfile's build only: next start doesn't serve standalone output.
+	...(process.env.NEXT_OUTPUT === "standalone" && { output: "standalone" }),
 	turbopack: { resolveAlias: Object.fromEntries(SITE_EXTENSIONS) },
 	images: {
 		remotePatterns: [

@@ -130,3 +130,28 @@ test("SES: its own count against its daily quota, with its rate", async () => {
 	});
 	assert.match(await render(capacity), /Up to 14 a second/);
 });
+
+test("SMTP: every email of the last hour and 24 hours, without a cap, and why there are no rates", async () => {
+	const clusterReads = fake.callsTo("GET", /\/clusters\//).length;
+	const capacity = await withEnv({ EMAIL_PROVIDER: "smtp", SMTP_HOST: "mail.example.com" }, () =>
+		m.capacity.getSendingCapacity({ now: NOW, fresh: true })
+	);
+	assert.deepEqual(capacity.lanes, [
+		{
+			label: "All emails",
+			status: null,
+			meters: [
+				{ label: "Last hour", used: 6, cap: null },
+				{ label: "Last 24 hours", used: 9, cap: null },
+			],
+			perSecond: null,
+		},
+	]);
+	assert.equal(fake.callsTo("GET", /\/clusters\//).length, clusterReads, "never the cluster path");
+	const html = await render(capacity);
+	assert.match(html, /bounces and complaints aren&#x27;t recorded/);
+	assert.doesNotMatch(html, /role="meter"|SMTP|mail\.example\.com/);
+
+	const unconfigured = await withEnv({ EMAIL_PROVIDER: "smtp", SMTP_HOST: "" }, () => m.capacity.getSendingCapacity({ now: NOW, fresh: true }));
+	assert.deepEqual(unconfigured, { error: "unconfigured" });
+});
