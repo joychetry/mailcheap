@@ -215,6 +215,12 @@ describe("local job queue", () => {
 		await runJobs();
 		assert.equal((await m.Job.findById(job._id).lean()).attempts, 2);
 		await m.Job.deleteOne({ _id: job._id });
+
+		const lastTry = await m.Job.create({ kind: "send-batch", payload: {}, status: "running", attempts: m.jobRules.MAX_JOB_ATTEMPTS, lockedUntil: new Date(Date.now() - 1000) });
+		assert.deepEqual(await runJobs(), { done: 0, retried: 0, failed: 1 }, "stopped on its last try: not run again");
+		const failed = await m.Job.findById(lastTry._id).lean();
+		assert.equal(failed.status, "failed");
+		assert.match(failed.lastError, /stopped while running it on its last try/);
 	});
 
 	test("the runner and the job routes only take the runner's token, and the runner is off without JOB_QUEUE=local", async () => {
