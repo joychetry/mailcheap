@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { getAdminEmails, getConfigProblems, isEmailAllowed } from "../lib/config.js";
+import { getAdminEmails, getConfigProblems, getDevOrigins, isEmailAllowed } from "../lib/config.js";
 import { register } from "../instrumentation.js";
 
 const STRONG = { BETTER_AUTH_SECRET: "s".repeat(32), SUPPRESSION_HASH_KEY: "k".repeat(32) };
@@ -96,4 +96,9 @@ test("ADMIN_EMAILS is a comma-separated list, trimmed and lowercased", () => {
 		if (previous === undefined) delete process.env.ADMIN_EMAILS;
 		else process.env.ADMIN_EMAILS = previous;
 	}
+});
+
+test("ALLOWED_DEV_ORIGINS is a comma-separated list of hosts, trimmed and lowercased", () => {
+	assert.deepEqual(getDevOrigins({ ALLOWED_DEV_ORIGINS: "192.168.1.5, MyBox.local ,," }), ["192.168.1.5", "mybox.local"]);
+	assert.deepEqual(getDevOrigins({}), []);
 });
